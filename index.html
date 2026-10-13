@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Controle interno de carros</title>
+
+  <!-- App instalável (PWA) -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#1a73e8" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Carros" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 16px; background: #f4f5f7; color: #222; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    h2 { margin: 0 0 4px; }
+    .topo { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .topo { background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
+    .topo > div { display: flex; gap: 6px; }
+    .topo button[hidden] { display: none; }
+    .marca { display: flex; align-items: center; gap: 12px; }
+    .marca h2 { margin: 0; font-size: 20px; }
+    .logo { height: 84px; width: auto; }
+    @media (max-width: 640px) {
+      .logo { height: 60px; }
+      .marca h2 { font-size: 16px; }
+    }
+
+    /* Tela de login */
+    #login { display: none; min-height: 90vh; align-items: center; justify-content: center; }
+    body.deslogado #login { display: flex; }
+    body.deslogado .container { display: none; }
+    .login-card { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 28px 24px;
+                  width: min(340px, 100%); text-align: center; box-shadow: 0 6px 24px rgba(0,0,0,.08); }
+    .login-card .logo-login { width: 180px; max-width: 70%; height: auto; }
+    .login-card h2 { margin: 12px 0 4px; }
+    .login-card p { margin: 0 0 16px; color: #666; font-size: 14px; }
+    #senha { text-align: center; font-size: 24px; letter-spacing: 8px; padding: 12px; width: 100%;
+             border: 1px solid #bbb; border-radius: 8px; }
+    .login-card .check { justify-content: center; margin: 12px 0; }
+    .login-card button { width: 100%; }
+    #erroLogin { color: #b00020; font-size: 14px; min-height: 18px; margin-top: 10px; }
+    #status { font-size: 13px; color: #666; margin-bottom: 14px; min-height: 16px; }
+    #status.erro { color: #b00020; font-weight: bold; }
+
+    .tabs { display: flex; gap: 6px; margin-bottom: -1px; }
+    .tab { padding: 10px 18px; border: 1px solid #ccc; border-bottom: none; border-radius: 8px 8px 0 0;
+           background: #e6e7ea; cursor: pointer; user-select: none; }
+    .tab.active { background: #fff; font-weight: bold; }
+    .badge-count { display: inline-block; min-width: 20px; padding: 1px 6px; margin-left: 4px; border-radius: 10px;
+                   background: #1a73e8; color: #fff; font-size: 12px; text-align: center; }
+
+    .panel { display: none; background: #fff; border: 1px solid #ccc; border-radius: 0 8px 8px 8px; padding: 16px; }
+    .panel.active { display: block; }
+
+    .form { display: grid; gap: 10px; max-width: 360px; }
+    input[type=text], input[type=tel], input[type=search], input[type=datetime-local], textarea {
+      padding: 10px; font-size: 16px; border: 1px solid #bbb; border-radius: 6px; width: 100%; font-family: inherit;
+    }
+    textarea { resize: vertical; min-height: 60px; }
+    #placa { text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+    .hint { font-size: 13px; color: #1a7f37; min-height: 16px; }
+    .check { display: flex; gap: 8px; align-items: center; font-size: 14px; cursor: pointer; }
+    .check small { color: #777; }
+    .botoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    button { padding: 10px 14px; font-size: 14px; border: 1px solid #bbb; border-radius: 6px; background: #fff; cursor: pointer; }
+    button:hover { background: #f0f0f0; }
+    button.primario { background: #1a73e8; border-color: #1a73e8; color: #fff; }
+    button.primario:hover { background: #1660c4; }
+    button.whats { background: #25d366; border-color: #25d366; color: #fff; }
+    button:disabled { opacity: .5; cursor: wait; }
+    .btn-mini { padding: 6px 10px; font-size: 13px; }
+
+    .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .controls input[type=search] { max-width: 320px; }
+    .controls label { display: flex; gap: 6px; align-items: center; font-size: 14px; }
+
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid #e3e3e3; padding: 8px 6px; text-align: left; vertical-align: middle; font-size: 14px; }
+    th { background: #fafafa; }
+    th[data-sort] { cursor: pointer; user-select: none; white-space: nowrap; }
+    th[data-sort]:hover { background: #f0f0f0; }
+    th .seta { color: #1a73e8; font-size: 11px; }
+    /* Esconde a coluna Saída quando só mostra quem está na oficina */
+    table.sem-saida .col-saida { display: none; }
+    td.acoes { white-space: nowrap; }
+    td.acoes button { margin: 2px 0; }
+    .st { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: bold; }
+    .st.dentro { background: #e6f4ea; color: #1a7f37; }
+    .st.fora { background: #eee; color: #666; }
+    .vazio { color: #888; padding: 20px 0; text-align: center; }
+
+    /* Descrição aparece ao passar o mouse (ou tocar) na placa */
+    .placa { position: relative; font-weight: bold; outline: none; }
+    .tag-mao { background: #fff4e5; color: #a15c00; padding: 2px 8px; border-radius: 10px; font-size: 12px; white-space: nowrap; }
+    .placa.tem-desc { border-bottom: 1px dashed #1a73e8; cursor: help; }
+    .placa.tem-desc::before { content: "📝 "; font-size: 12px; }
+    .placa.tem-desc:hover::after, .placa.tem-desc:focus::after {
+      content: attr(data-desc); position: absolute; left: 0; top: calc(100% + 6px); z-index: 5;
+      background: #222; color: #fff; padding: 8px 10px; border-radius: 6px; font-weight: normal; font-size: 13px;
+      white-space: pre-wrap; width: max-content; max-width: 280px; box-shadow: 0 4px 14px rgba(0,0,0,.25);
+    }
+
+    details.backup { margin-top: 16px; font-size: 14px; color: #555; }
+    details.backup summary { cursor: pointer; }
+    details.backup .botoes { margin-top: 8px; align-items: center; }
+
+    dialog { border: none; border-radius: 10px; padding: 20px; width: min(420px, 92vw); box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+    dialog::backdrop { background: rgba(0,0,0,.4); }
+    dialog h3 { margin: 0 0 12px; }
+    dialog label { display: block; font-size: 13px; color: #555; margin-top: 8px; }
+    dialog .rodape { display: flex; gap: 8px; justify-content: space-between; margin-top: 16px; flex-wrap: wrap; }
+    dialog .rodape > div { display: flex; gap: 8px; }
+    button.perigo { color: #b00020; border-color: #e0a0a8; }
+    button.perigo:hover { background: #fdecee; }
+
+    #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(100px);
+             background: #222; color: #fff; padding: 12px 18px; border-radius: 8px; font-size: 14px;
+             transition: transform .25s; z-index: 10; max-width: 90%; }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast.erro { background: #b00020; }
+
+    /* Celular: tabela vira cartões */
+    @media (max-width: 640px) {
+      body { padding: 10px; }
+      .form { max-width: none; }
+      .botoes button { flex: 1; }
+      thead { display: none; }
+      table, tbody, tr, td { display: block; width: 100%; }
+      tr { border: 1px solid #ddd; border-radius: 8px; margin-bottom: 10px; padding: 8px 10px; }
+      td { border: none; padding: 3px 0; }
+      td[data-label]::before { content: attr(data-label) ": "; font-weight: bold; color: #555; }
+      td.acoes { white-space: normal; display: flex; gap: 6px; flex-wrap: wrap; padding-top: 8px; }
+      td.acoes button { flex: 1; }
+    }
+  </style>
+</head>
+<body class="deslogado">
+
+<div id="login">
+  <form class="login-card" onsubmit="event.preventDefault(); entrar();">
+    <img src="logo.png" alt="Sandro Auto Elétrica" class="logo-login" onerror="this.remove()" />
+    <h2>Controle interno de carros</h2>
+    <p>Digite a senha para entrar</p>
+    <input type="password" id="senha" inputmode="numeric" autocomplete="current-password" placeholder="Senha" />
+    <label class="check"><input type="checkbox" id="lembrar" checked /> Lembrar neste aparelho</label>
+    <button type="submit" class="primario" id="btnEntrar">Entrar</button>
+    <div id="erroLogin"></div>
+  </form>
+</div>
+
+<div class="container">
+
+  <div class="topo">
+    <div class="marca">
+      <img src="logo.png" alt="Sandro Auto Elétrica" class="logo" onerror="this.remove()" />
+      <h2>Controle interno de carros</h2>
+    </div>
+    <div>
+      <button id="btnInstalar" class="btn-mini primario" hidden>📲 Instalar app</button>
+      <button class="btn-mini" onclick="sair()">Sair</button>
+    </div>
+  </div>
+  <div id="status">Conectando à planilha...</div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab(0)">Entrada / Saída</div>
+    <div class="tab" onclick="showTab(1)">Carros <span class="badge-count" id="contador">0</span></div>
+  </div>
+
+  <!-- Aba 1 -->
+  <div class="panel active">
+    <form class="form" onsubmit="event.preventDefault(); registrarCarro();">
+      <label class="check">
+        <input type="checkbox" id="naMao" onchange="toggleNaMao()" />
+        Na mão <small>(peça sem carro, não tem placa)</small>
+      </label>
+      <input type="text" id="placa" placeholder="Placa" list="listaPlacas" autocomplete="off" />
+      <datalist id="listaPlacas"></datalist>
+      <div class="hint" id="hintPlaca"></div>
+      <input type="text" id="nome" placeholder="Nome" autocomplete="off" />
+      <input type="tel" id="telefone" placeholder="Telefone (com DDD)" autocomplete="off" />
+      <textarea id="descricao" placeholder="Descrição do serviço (opcional)"></textarea>
+      <div class="botoes">
+        <button type="submit" class="primario">Dar entrada</button>
+        <button type="button" onclick="marcarSaiu()">Marcar como saiu</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Aba 2 -->
+  <div class="panel">
+    <div class="controls">
+      <input type="search" id="busca" placeholder="Buscar por placa ou nome" oninput="atualizarLista()" />
+      <label>
+        <input type="checkbox" id="verTodos" onchange="atualizarLista()" />
+        Mostrar também os que já saíram
+      </label>
+      <button class="btn-mini" onclick="sincronizar()">↻ Atualizar</button>
+    </div>
+
+    <table id="tabela" class="sem-saida">
+      <thead>
+        <tr>
+          <th data-sort="entrada">Entrada <span class="seta"></span></th>
+          <th data-sort="placa">Placa <span class="seta"></span></th>
+          <th data-sort="nome">Nome <span class="seta"></span></th>
+          <th data-sort="telefone">Telefone <span class="seta"></span></th>
+          <th data-sort="status">Status <span class="seta"></span></th>
+          <th data-sort="saida" class="col-saida">Saída <span class="seta"></span></th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="lista"></tbody>
+    </table>
+    <div class="vazio" id="vazio" hidden>Nenhum carro encontrado.</div>
+  </div>
+
+  <details class="backup">
+    <summary>Backup</summary>
+    <div class="botoes">
+      <button type="button" class="btn-mini" onclick="exportarJSON()">Exportar JSON</button>
+      <label>Importar: <input type="file" id="importFile" accept=".json" onchange="importarJSON(event)" /></label>
+    </div>
+  </details>
+
+</div>
+
+<dialog id="dlgEditar">
+  <form onsubmit="event.preventDefault(); salvarEdicao();">
+    <h3>Editar carro</h3>
+    <label>Placa <input type="text" id="edPlaca" style="text-transform:uppercase" /></label>
+    <label>Nome <input type="text" id="edNome" /></label>
+    <label>Telefone <input type="tel" id="edTelefone" /></label>
+    <label>Entrada <input type="text" id="edEntrada" placeholder="dd/mm/aaaa, hh:mm:ss" /></label>
+    <label>Saída <input type="text" id="edSaida" placeholder="vazio se ainda está na oficina" /></label>
+    <label>Descrição <textarea id="edDescricao" placeholder="opcional"></textarea></label>
+    <div class="rodape">
+      <button type="button" class="perigo" onclick="excluirCarro()">Excluir</button>
+      <div>
+        <button type="button" onclick="$('dlgEditar').close()">Cancelar</button>
+        <button type="submit" class="primario">Salvar</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast"></div>
+
+<script>
+// ===================== CONFIGURAÇÃO =====================
+// Cole aqui a URL do App da Web (termina em /exec)
+const API_URL = 'https://script.google.com/macros/s/AKfycbymBBd98_VBMCmJhT-hKrl19QdWKExpAMxHHFreiAPmDgmJ-22LClrBtFnR-LUH2tdXUw/exec';
+// A senha NÃO fica aqui: ela é digitada na tela de login e conferida pelo Apps Script.
+// De quanto em quanto tempo a lista se atualiza sozinha (ms)
+const AUTO_REFRESH = 60000;
+// ========================================================
+
+let banco = [];
+let abaAtual = 0;
+let ocupado = false;
+let token = null;          // hash da senha, depois do login
+let appIniciado = false;
+let ordem = { col: null, dir: 1 }; // coluna clicada no cabeçalho (null = ordem padrão)
+
+const $ = id => document.getElementById(id);
+
+// ---------- Comunicação com a planilha ----------
+async function api(action, payload = {}) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    // text/plain evita o preflight de CORS que o Apps Script não suporta
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ token, action, ...payload })
+  });
+  const data = await res.json();
+  if (!data.ok) {
+    const err = new Error(data.erro || 'Erro desconhecido');
+    err.auth = !!data.auth; // senha errada/bloqueado
+    throw err;
+  }
+  banco = data.carros || [];
+  salvarCache();
+  return data;
+}
+
+function setStatus(texto, erro = false) {
+  $('status').textContent = texto;
+  $('status').classList.toggle('erro', erro);
+}
+function statusOk() {
+  setStatus('Sincronizado às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+}
+
+function setOcupado(v) {
+  ocupado = v;
+  document.querySelectorAll('button').forEach(b => b.disabled = v);
+}
+
+let toastTimer;
+function toast(msg, erro = false) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.toggle('erro', erro);
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function executar(action, payload, msgOk) {
+  if (ocupado) return null;
+  setOcupado(true);
+  setStatus('Salvando na planilha...');
+  try {
+    const data = await api(action, payload);
+    statusOk();
+    render();
+    if (msgOk) toast(msgOk);
+    return data;
+  } catch (err) {
+    if (err.auth) { sair(err.message); return null; }
+    setStatus('Erro: ' + err.message, true);
+    toast(err.message, true);
+    return null;
+  } finally {
+    setOcupado(false);
+  }
+}
+
+// silencioso = atualização automática, não trava os botões
+async function sincronizar(silencioso = false) {
+  if (ocupado) return;
+  if (!silencioso) { setOcupado(true); setStatus('Buscando dados da planilha...'); }
+  try {
+    await api('listar');
+    statusOk();
+    render();
+  } catch (err) {
+    if (err.auth) return sair(err.message);
+    setStatus('Sem conexão com a planilha (mostrando cópia local). ' + err.message, true);
+  } finally {
+    if (!silencioso) setOcupado(false);
+  }
+}
+
+// ---------- Cópia local (pra abrir rápido e ter algo se cair a internet) ----------
+function lerCache() {
+  try { return JSON.parse(localStorage.getItem('carros') || '[]'); }
+  catch (e) { return []; }
+}
+function salvarCache() {
+  try { localStorage.setItem('carros', JSON.stringify(banco)); } catch (e) {}
+}
+
+// ---------- Helpers ----------
+function acharCarro(placa) {
+  placa = (placa || '').trim().toUpperCase();
+  return banco.find(c => (c.placa || '').toUpperCase() === placa);
+}
+
+// "13/10/2026, 10:19:00" -> timestamp (pra ordenar)
+function dataParaNumero(s) {
+  const m = /(\d{2})\/(\d{2})\/(\d{4}),?\s*(\d{2}):(\d{2})(?::(\d{2}))?/.exec(s || '');
+  return m ? new Date(m[3], m[2] - 1, m[1], m[4], m[5], m[6] || 0).getTime() : 0;
+}
+
+// Peça na mão (sem placa): código gerado pela planilha, ex.: "NA MÃO 3"
+function ehNaMao(c) {
+  return /^NA MÃO \d+$/.test((c.placa || '').trim().toUpperCase());
+}
+
+// não duplica o 55 se o número já vier com ele
+function numeroWhats(tel) {
+  let n = (tel || '').replace(/\D/g, '');
+  if (!n) return '';
+  if (!(n.startsWith('55') && n.length >= 12)) n = '55' + n;
+  return n;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+// ---------- Interface ----------
+function showTab(i) {
+  abaAtual = i;
+  document.querySelectorAll('.tab').forEach((t, idx) => t.classList.toggle('active', idx === i));
+  document.querySelectorAll('.panel').forEach((p, idx) => p.classList.toggle('active', idx === i));
+  if (i === 1) sincronizar(true); // pega o que outros aparelhos mudaram
+}
+
+function render() {
+  atualizarLista();
+  $('contador').textContent = banco.filter(c => c.conosco).length;
+  $('listaPlacas').innerHTML = banco
+    .map(c => `<option value="${escapeHtml(c.placa)}">${escapeHtml(c.nome || '')}</option>`)
+    .join('');
+}
+
+function toggleNaMao() {
+  const ligado = $('naMao').checked;
+  $('placa').hidden = ligado;
+  $('hintPlaca').hidden = ligado;
+  $('descricao').placeholder = ligado
+    ? 'Descrição da peça (ex.: alternador, motor de arranque...)'
+    : 'Descrição do serviço (opcional)';
+  (ligado ? $('nome') : $('placa')).focus();
+}
+
+// Ao digitar uma placa já cadastrada, preenche nome e telefone
+$('placa').addEventListener('input', () => {
+  const carro = acharCarro($('placa').value);
+  if (carro) {
+    if (!$('nome').value) $('nome').value = carro.nome || '';
+    if (!$('telefone').value) $('telefone').value = carro.telefone || '';
+    $('hintPlaca').textContent = `Já cadastrado — ${carro.conosco ? 'está na oficina' : 'fora da oficina'}`;
+  } else {
+    $('hintPlaca').textContent = '';
+  }
+});
+
+function limparForm() {
+  $('placa').value = '';
+  $('nome').value = '';
+  $('telefone').value = '';
+  $('descricao').value = '';
+  $('hintPlaca').textContent = '';
+  $('naMao').checked = false;
+  toggleNaMao();
+}
+
+async function registrarCarro() {
+  const nome = $('nome').value.trim();
+  const telefone = $('telefone').value.trim();
+  const descricao = $('descricao').value.trim();
+
+  if ($('naMao').checked) {
+    if (!nome || !telefone) return toast('Peça na mão: informe nome e telefone', true);
+    const r = await executar('entrada', { naMao: true, nome, telefone, descricao });
+    if (r) { toast(`Peça registrada como ${r.placa}`); limparForm(); }
+    return;
+  }
+
+  const placa = $('placa').value.trim().toUpperCase();
+  if (!placa) return toast('Informe a placa (ou marque "Na mão")', true);
+  if (!acharCarro(placa) && (!nome || !telefone)) return toast('Carro novo: informe nome e telefone', true);
+
+  if (await executar('entrada', { placa, nome, telefone, descricao }, `Entrada registrada: ${placa}`)) limparForm();
+}
+
+async function marcarSaiu(placaParam) {
+  const placa = (placaParam || $('placa').value).trim().toUpperCase();
+  if (!placa) return toast('Informe a placa', true);
+  if (!acharCarro(placa)) return toast('Placa não encontrada no sistema', true);
+
+  if (await executar('saida', { placa }, `Saída registrada: ${placa}`) && !placaParam) limparForm();
+}
+
+// ---------- Ordenação ----------
+const comparadores = {
+  entrada: (a, b) => dataParaNumero(a.entrada) - dataParaNumero(b.entrada),
+  saida: (a, b) => dataParaNumero(a.saida) - dataParaNumero(b.saida),
+  status: (a, b) => (b.conosco - a.conosco),
+  placa: (a, b) => (a.placa || '').localeCompare(b.placa || '', 'pt-BR', { numeric: true, sensitivity: 'base' }),
+  nome: (a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { numeric: true, sensitivity: 'base' }),
+  telefone: (a, b) => (a.telefone || '').replace(/\D/g, '').localeCompare((b.telefone || '').replace(/\D/g, ''), 'pt-BR', { numeric: true })
+};
+
+// padrão: quem está na oficina primeiro, depois por entrada mais recente
+function ordemPadrao(a, b) {
+  return (b.conosco - a.conosco) || (dataParaNumero(b.entrada) - dataParaNumero(a.entrada));
+}
+
+document.querySelector('#tabela thead').addEventListener('click', (e) => {
+  const th = e.target.closest('th[data-sort]');
+  if (!th) return;
+  const col = th.dataset.sort;
+  if (ordem.col === col) ordem.dir *= -1;   // clicou de novo: inverte (Z-A)
+  else ordem = { col, dir: 1 };             // coluna nova: A-Z
+  atualizarLista();
+});
+
+function atualizarSetas() {
+  document.querySelectorAll('#tabela th[data-sort]').forEach(th => {
+    th.querySelector('.seta').textContent =
+      th.dataset.sort === ordem.col ? (ordem.dir === 1 ? '▲' : '▼') : '';
+  });
+}
+
+// ---------- Lista ----------
+function atualizarLista() {
+  const tbody = $('lista');
+  const busca = $('busca').value.trim().toLowerCase();
+  const verTodos = $('verTodos').checked;
+
+  $('tabela').classList.toggle('sem-saida', !verTodos);
+
+  const cmp = ordem.col ? (a, b) => comparadores[ordem.col](a, b) * ordem.dir : ordemPadrao;
+
+  const filtrados = banco
+    .filter(c => verTodos || c.conosco)
+    .filter(c => !busca ||
+      (c.placa || '').toLowerCase().includes(busca) ||
+      (c.nome || '').toLowerCase().includes(busca))
+    .sort(cmp);
+
+  atualizarSetas();
+  $('vazio').hidden = filtrados.length > 0;
+
+  tbody.innerHTML = filtrados.map(c => {
+    const p = escapeHtml(c.placa || '');
+    const desc = escapeHtml(c.descricao || '');
+    const wa = numeroWhats(c.telefone);
+    const rotulo = ehNaMao(c)
+      ? `<span class="tag-mao">🔧 Na mão #${p.replace(/\D/g, '')}</span>`
+      : p;
+    return `
+      <tr>
+        <td data-label="Entrada">${escapeHtml(c.entrada || '')}</td>
+        <td data-label="Placa">${desc
+          ? `<span class="placa tem-desc" tabindex="0" data-desc="${desc}">${rotulo}</span>`
+          : `<span class="placa">${rotulo}</span>`}</td>
+        <td data-label="Nome">${escapeHtml(c.nome || '')}</td>
+        <td data-label="Telefone">${wa ? `<a href="https://wa.me/${wa}" target="_blank">${escapeHtml(c.telefone)}</a>` : ''}</td>
+        <td data-label="Status"><span class="st ${c.conosco ? 'dentro' : 'fora'}">${c.conosco ? 'Na oficina' : 'Saiu'}</span></td>
+        <td data-label="Saída" class="col-saida">${escapeHtml(c.saida || '')}</td>
+        <td class="acoes">
+          <button class="btn-mini whats" data-acao="avisar" data-placa="${p}">Avisar pronto</button>
+          ${c.conosco
+            ? `<button class="btn-mini" data-acao="saiu" data-placa="${p}">Saiu</button>`
+            : `<button class="btn-mini" data-acao="entrou" data-placa="${p}">Dar entrada</button>`}
+          <button class="btn-mini" data-acao="editar" data-placa="${p}">Editar</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+// Um listener só para todos os botões da lista
+$('lista').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-acao]');
+  if (!btn) return;
+  const carro = acharCarro(btn.dataset.placa);
+  if (!carro) return;
+
+  if (btn.dataset.acao === 'avisar') avisarPronto(carro);
+  if (btn.dataset.acao === 'saiu' && confirm(`Marcar ${carro.placa} (${carro.nome}) como saiu?`)) marcarSaiu(carro.placa);
+  if (btn.dataset.acao === 'entrou') executar('entrada', { placa: carro.placa }, `Entrada registrada: ${carro.placa}`);
+  if (btn.dataset.acao === 'editar') abrirEdicao(carro);
+});
+
+// ---------- Edição ----------
+let placaEmEdicao = null;
+const FORMATO_DATA = /^\d{2}\/\d{2}\/\d{4},?\s*\d{2}:\d{2}(:\d{2})?$/;
+
+function abrirEdicao(carro) {
+  placaEmEdicao = carro.placa;
+  $('edPlaca').value = carro.placa || '';
+  $('edNome').value = carro.nome || '';
+  $('edTelefone').value = carro.telefone || '';
+  $('edEntrada').value = carro.entrada || '';
+  $('edSaida').value = carro.saida || '';
+  $('edDescricao').value = carro.descricao || '';
+  $('dlgEditar').showModal();
+}
+
+async function salvarEdicao() {
+  const dados = {
+    placaOriginal: placaEmEdicao,
+    placa: $('edPlaca').value.trim().toUpperCase(),
+    nome: $('edNome').value.trim(),
+    telefone: $('edTelefone').value.trim(),
+    entrada: $('edEntrada').value.trim(),
+    saida: $('edSaida').value.trim(),
+    descricao: $('edDescricao').value.trim()
+  };
+
+  if (!dados.placa) return toast('Informe a placa', true);
+  if (!dados.nome || !dados.telefone) return toast('Nome e telefone não podem ficar vazios', true);
+  for (const campo of ['entrada', 'saida']) {
+    if (dados[campo] && !FORMATO_DATA.test(dados[campo])) {
+      return toast(`Data de ${campo === 'entrada' ? 'entrada' : 'saída'} inválida. Use dd/mm/aaaa, hh:mm`, true);
+    }
+  }
+
+  if (await executar('editar', dados, `Carro ${dados.placa} atualizado`)) $('dlgEditar').close();
+}
+
+async function excluirCarro() {
+  if (!confirm(`Excluir o carro ${placaEmEdicao} da planilha? Isso não pode ser desfeito.`)) return;
+  if (await executar('excluir', { placa: placaEmEdicao }, `Carro ${placaEmEdicao} excluído`)) $('dlgEditar').close();
+}
+
+// ---------- WhatsApp ----------
+function saudacao() {
+  const h = new Date().getHours();
+  if (h < 12) return "Bom dia";
+  if (h < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+function avisarPronto(carro) {
+  const numero = numeroWhats(carro.telefone);
+  if (!numero) return toast('Esse carro não tem telefone cadastrado', true);
+  const mensagem =
+    `${saudacao()} ${carro.nome}, aqui é da Sandro's auto elétrica.\n` +
+    (ehNaMao(carro)
+      ? `Só avisando que sua peça${carro.descricao ? ` (${carro.descricao})` : ''} já está pronta.`
+      : `Só avisando que seu carro, com placa ${carro.placa} já está pronto.`);
+  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`, "_blank");
+}
+
+// ---------- Backup / Importação ----------
+function exportarJSON() {
+  const blob = new Blob([JSON.stringify(banco, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `carros_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importarJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    let dados;
+    try {
+      dados = JSON.parse(e.target.result);
+      if (!Array.isArray(dados)) throw new Error();
+    } catch (err) {
+      return toast('Arquivo JSON inválido', true);
+    }
+    if (!confirm(`Isso vai SUBSTITUIR tudo que está na planilha por ${dados.length} carros do arquivo. Continuar?`)) return;
+    await executar('importar', { carros: dados }, 'Arquivo importado para a planilha!');
+  };
+  reader.readAsText(file);
+  event.target.value = ''; // permite importar o mesmo arquivo de novo
+}
+
+// ---------- Login ----------
+async function hashSenha(senha) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('sandro:' + senha));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function lerToken() {
+  try { return localStorage.getItem('token') || sessionStorage.getItem('token'); }
+  catch (e) { return null; }
+}
+function guardarToken(t, lembrar) {
+  try {
+    if (lembrar) localStorage.setItem('token', t);
+    else sessionStorage.setItem('token', t);
+  } catch (e) {}
+}
+function apagarToken() {
+  try { localStorage.removeItem('token'); sessionStorage.removeItem('token'); } catch (e) {}
+}
+
+async function entrar() {
+  const senha = $('senha').value.trim();
+  if (!senha) return;
+  $('btnEntrar').disabled = true;
+  $('erroLogin').textContent = 'Verificando...';
+  try {
+    token = await hashSenha(senha);
+    await api('listar');              // se a senha estiver errada, dá erro aqui
+    guardarToken(token, $('lembrar').checked);
+    $('senha').value = '';
+    $('erroLogin').textContent = '';
+    document.body.classList.remove('deslogado');
+    iniciarApp(true);
+  } catch (err) {
+    token = null;
+    $('erroLogin').textContent = err.auth ? err.message : 'Sem conexão com a planilha. ' + err.message;
+    $('senha').select();
+  } finally {
+    $('btnEntrar').disabled = false;
+  }
+}
+
+function sair(msg) {
+  const manual = typeof msg !== 'string'; // clicou no botão "Sair"
+  token = null;
+  apagarToken();
+  banco = [];
+  if (manual) { try { localStorage.removeItem('carros'); } catch (e) {} } // não deixa dados no aparelho
+  render();
+  document.body.classList.add('deslogado');
+  $('erroLogin').textContent = typeof msg === 'string' ? msg : '';
+  $('senha').focus();
+}
+
+// ---------- Início ----------
+async function iniciarApp(jaCarregado = false) {
+  const local = lerCache();
+
+  if (!jaCarregado) {
+    banco = local;
+    render();
+    setOcupado(true);
+    setStatus('Buscando dados da planilha...');
+    try {
+      await api('listar');
+    } catch (err) {
+      setOcupado(false);
+      if (err.auth) return sair(err.message);
+      banco = local;
+      render();
+      setStatus('Sem conexão com a planilha (mostrando cópia local). ' + err.message, true);
+      return agendarAtualizacoes();
+    }
+    setOcupado(false);
+  }
+
+  try {
+    // Migração: planilha vazia mas este aparelho tem os dados antigos
+    if (banco.length === 0 && local.length > 0 &&
+        confirm(`A planilha está vazia, mas este aparelho tem ${local.length} carros salvos. Enviar para a planilha?`)) {
+      await api('importar', { carros: local });
+      toast('Dados antigos enviados para a planilha!');
+    }
+  } catch (err) {
+    toast(err.message, true);
+  }
+
+  statusOk();
+  render();
+  agendarAtualizacoes();
+}
+
+// Atualiza sozinho quando a lista está aberta, e quando volta pra aba do navegador
+function agendarAtualizacoes() {
+  if (appIniciado) return;
+  appIniciado = true;
+  setInterval(() => { if (token && !document.hidden && abaAtual === 1) sincronizar(true); }, AUTO_REFRESH);
+  document.addEventListener('visibilitychange', () => { if (token && !document.hidden) sincronizar(true); });
+}
+
+function iniciar() {
+  token = lerToken();
+  if (token) {
+    document.body.classList.remove('deslogado');
+    iniciarApp();
+  } else {
+    // Sem login: a tela fica escondida, nada é mostrado
+    $('senha').focus();
+  }
+}
+
+// ---------- App instalável (PWA) ----------
+let pedidoInstalacao = null;
+
+// O Chrome/Edge avisa quando dá pra instalar: aí mostramos o botão
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  pedidoInstalacao = e;
+  $('btnInstalar').hidden = false;
+});
+
+$('btnInstalar').addEventListener('click', async () => {
+  if (!pedidoInstalacao) return;
+  pedidoInstalacao.prompt();
+  await pedidoInstalacao.userChoice;
+  pedidoInstalacao = null;
+  $('btnInstalar').hidden = true;
+});
+
+window.addEventListener('appinstalled', () => {
+  $('btnInstalar').hidden = true;
+  toast('App instalado!');
+});
+
+// Só funciona quando o app está hospedado (https), não abrindo o arquivo direto
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+iniciar();
+</script>
+
+</body>
+</html>
